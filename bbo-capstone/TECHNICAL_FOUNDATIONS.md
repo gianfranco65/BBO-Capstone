@@ -253,3 +253,5 @@ clean log via `warnings.filterwarnings("ignore", category=ConvergenceWarning)`; 
 kernel bounds (`ℓ ∈ [1e-3, 1e4]`, `σ_n² ∈ [1e-12, 1e1]`) removes most at no substantive
 cost. Seed pinned at 7; cross-check coordinates are draw-dependent, final strings hard-coded.
 
+FINISH
+
