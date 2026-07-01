@@ -210,3 +210,92 @@ This model is used exclusively for academic purposes within a controlled educati
 
 Cattaneo, G.F. (2026). *Bayesian Black-Box Optimisation Capstone Project*. Executive Master in Machine Learning & Artificial Intelligence, Imperial College London. GitHub repository: [link to be added at Module 25 submission].
 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# MODEL CARD — Round 13 Update
+
+> Merge target: `MODEL_CARD.md`. This block documents the **terminal (Round 13)** state of
+> the decision system. 
+
+**Author:** Gian Franco Cattaneo · Imperial Business School (Executive Master ML/AI)
+**Model version:** v13 (terminal) · **Date:** 2026-06-29 · **Status:** frozen
+
+---
+
+## Model description (terminal)
+
+The "model" is a **per-function Bayesian-optimisation decision system**, not a single
+trained network. For each of the 8 functions it comprises:
+
+1. A **Gaussian-Process surrogate** — `ConstantKernel(σ²) × Matérn-5/2(ARD length-scales)
+   + WhiteKernel(noise)`, fit on standardised inputs and standardised targets.
+2. An **Expected-Improvement** acquisition maximised over a **trust region** around the
+   incumbent best (`tr = 0.015`, `xi = 0`), evaluated on ~3×10⁵ candidate draws.
+3. An **override layer** (the operative policy) that supersedes the surrogate when a clean
+   empirical signal is more reliable than a data-starved GP extrapolation.
+
+### Fit configuration
+
+| Item | Value |
+|------|-------|
+| Kernel | C(1.0, [1e-3, 1e3]) × Matérn(ν=2.5, ARD, ls∈[1e-2, 1e2]) + WhiteKernel([1e-8, 1e1]) |
+| Optimiser restarts | 30 (L-BFGS-B) |
+| Input scaling | StandardScaler |
+| Acquisition | Expected Improvement (maximisation), xi = 0 |
+| Trust region | ±0.015 about incumbent (+ ±0.030 halo), clipped to [0, 0.999999] |
+| Seed | 7 |
+
+## Intended use
+
+Sequential proposal of the next query point under an expensive black-box, maximisation
+objective, with ≤ a few dozen evaluations total. **Out of scope:** global function
+reconstruction, deterministic guarantees of optimality, transfer to other portals.
+
+## Round-13 decisions and rationale
+
+| Fn | GP-EI cross-check | Final decision | Override reason |
+|----|-------------------|----------------|-----------------|
+| f1 | (0.485, 0.463) off-ridge | **(0.489, 0.489)** | Ridge x₁+x₂=0.978; GP off-ridge gradient unidentified; place at symmetry (predicted peak) |
+| f2 | ≈ incumbent, sd ≈ 0.10 | **re-query incumbent** | Stochastic basin; exploit = re-pull best arm, not extrapolate |
+| f3 | 0.03 jump in x₁ | **re-query incumbent** | Knife-edge basin; R12 regressed at near-identical input |
+| f4 | μ ≈ 1.21, dir agrees | **(0.430, 0.412, 0.360, 0.419)** | GP + empirical vector concur (x₂↓/x₃↓/x₄↑); step taken, magnitude hedged |
+| f5 | flat, μ ≤ incumbent | **(0.040, ub, ub, ub)** | x₂=x₃=x₄=ub is a hard anchor; extend monotone x₁ |
+| f6 | x₄,x₅ drift | **(0.455, 0.248, 0.585, ub, 0)** | Keep anchors x₄=ub, x₅=0; follow agreed in-plane trend |
+| f7 | raises x₁ off 0 | **(0, 0.217, 0.301, 0.191, 0.346, 0.724)** | x₁=0 anchor; one further monotone descent step |
+| f8 | perturbs anchors | **x₃ = 0.130** | Deterministic; parabolic vertex identified analytically |
+
+## Performance (best-confirmed, 12-round record)
+
+| Fn | Best value | Status |
+|----|------------|--------|
+| f1 | 3.449e-07 | Solved-geometric |
+| f2 | 0.723740 | Noise-limited |
+| f3 | −0.035216 | Curvature/noise-limited |
+| f4 | 0.55365 | Open-ascending |
+| f5 | 4440.4943 | Saturated |
+| f6 | −0.513059 | Slow-converging |
+| f7 | 2.285415 | Converging-decelerating |
+| f8 | 9.8596846 | Solved-exact (deterministic) |
+
+**Realised Round-13 outputs are not ingested** for f1–f7 (portal returns not captured before
+termination); f8 is deterministic and equals **9.8596846** at the submitted vertex.
+
+## Limitations & known failure modes
+
+- **Data starvation:** 12 points in up to 8 dimensions makes the GP gradient unreliable in
+  high dimensions; global EI chased high-variance corners (mitigated by the trust region and
+  override layer).
+- **Convergence warnings:** L-BFGS-B `ABNORMAL_TERMINATION_IN_LNSRCH` and hyperparameters
+  railing to bounds are expected on flat sparse-data likelihoods; they are warnings, not
+  errors, and the multi-restart fit returns valid kernels.
+- **Stochastic f2:** no surrogate refinement converges; only repeated sampling tightens the
+  mean. The system correctly declines to extrapolate.
+- **Reproducibility nuance:** cross-check coordinates are seed/draw-dependent; final
+  submission strings are hard-coded and deterministic.
+
+## Ethical / risk notes
+
+Synthetic benchmark with no personal data and no real-world actuation. The transferable
+caution is generic to BO: in any physical deployment, acquisition must be constrained to a
+safe operating envelope, and a model-drift detector must trigger fallback to direct
+experience when dynamics shift.
