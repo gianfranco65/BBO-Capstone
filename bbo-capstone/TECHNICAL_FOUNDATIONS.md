@@ -144,3 +144,112 @@ bbo-capstone/
 | **Frazier (2018)**. *A Tutorial on Bayesian Optimization*. arXiv:1807.02811. | Most current accessible survey; covers batch BO, noisy observations, constrained BO. |
 | **Input warping via Kumaraswamy CDF** (Snoek et al., 2014, ICML) | Addresses the f1 near-zero surface: non-linear input transformation improves GP posterior quality when outputs concentrate near machine-precision boundaries. The R7 best of 1.31e-7 confirms the problem persists; this is the most actionable structural improvement available if additional rounds were permitted. |
 | **Thompson Sampling for BO** (Chapelle & Li, 2011, NeurIPS) | Alternative acquisition function to EI; draws a GP sample and maximises it, providing natural exploration-exploitation balance without the ξ parameter. Relevant for f2 (sharp, stochastic-appearing landscape) where ξ tuning is difficult. |
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# TECHNICAL FOUNDATIONS — Round 13 Update
+
+> Merge target: `TECHNICAL_FOUNDATIONS.md`. Appended under `## Round 13 (final)`.
+
+**Author:** Gian Franco Cattaneo · Imperial Business School (Executive Master ML/AI)
+**Date:** 2026-06-29
+
+---
+
+## 1. Surrogate model
+
+For each function we model the objective as a draw from a Gaussian Process:
+
+```
+f(x) ~ GP( m(x), k(x, x') )
+```
+
+with composite kernel
+
+```
+k(x, x') = σ² · Matérn_{ν=5/2}( x, x' ; ℓ₁..ℓ_d )  +  σ_n² · δ(x, x')
+```
+
+The **Matérn-5/2** kernel gives twice-differentiable sample paths — smoother than Matérn-3/2,
+less rigid than the RBF — a good prior for the moderately smooth, occasionally cliff-bearing
+responses observed (f4 corners collapse to −27…−31). **ARD** length-scales `ℓ_i` let the GP
+learn per-dimension relevance; on f7/f8 several `ℓ_i` railed to the upper bound, i.e. the GP
+judged those dimensions flat — the quantitative basis for treating pinned coordinates as
+anchors. The **WhiteKernel** `σ_n²` separates observation noise from signal: it collapsed to
+the ≈1e-8 floor for the deterministic functions and stayed materially positive only for f2.
+
+Inputs are standardised; targets standardised for conditioning. Hyperparameters are fit by
+maximising the log marginal likelihood with 30 L-BFGS-B restarts.
+
+## 2. Acquisition — Expected Improvement (maximisation)
+
+With incumbent best `f*` and posterior `(μ(x), σ(x))`:
+
+```
+EI(x) = (μ(x) − f* − ξ) · Φ(z)  +  σ(x) · φ(z),    z = (μ(x) − f* − ξ) / σ(x)
+```
+
+We maximise EI (maximisation convention; minimisation functions negated upstream — the
+R4→5 correction). For the **terminal** round we set `ξ = 0` (no exploration premium) and
+restrict the candidate set to a **trust region** `±0.015` about the incumbent (plus a
+`±0.030` halo), reflecting the policy shift to pure exploitation (ε → 0). EI is evaluated on
+~3×10⁵ Monte-Carlo candidates and the argmax returned.
+
+## 3. Override doctrine (operative policy)
+
+The GP-EI proposal is a **cross-check**. With 12 points in up to 8 dimensions the posterior
+gradient is poorly identified, so a documented empirical signal overrides the surrogate when
+stronger. Two Round-13 overrides rest on closed-form geometry:
+
+### 3.1 f1 — ridge + symmetry
+
+All Round-7→12 points satisfy `x₁ + x₂ = 0.978`, and the objective rises monotonically as
+`|x₁ − x₂| → 0`:
+
+| x₁+x₂ | \|x₁−x₂\| | y |
+|-------|-----------|---|
+| 0.978 | 0.028 | 1.31e-7 |
+| 0.978 | 0.020 | 2.22e-7 |
+| 0.978 | 0.012 | 3.11e-7 |
+| 0.978 | 0.008 | 3.45e-7 |
+
+The surrogate's off-ridge drift is unidentified (data lies on a near-1D manifold). The
+symmetric ridge point `x₁ = x₂ = 0.489` is the predicted peak → submitted.
+
+### 3.2 f8 — parabolic vertex
+
+With all coordinates but x₃ pinned, the (x₃, y) samples fit a concave parabola:
+
+```
+quadratic fit a < 0,  vertex  x₃* = −b / 2a = 0.130000,  ŷ_peak = 9.8596846
+```
+
+Deterministic function ⇒ the vertex is the exact argmax → submitted x₃ = 0.130.
+
+## 4. Reinforcement-learning interpretation
+
+- **MAB / exploration–exploitation.** Early rounds = high-ε exploration to locate mass;
+  Round 13 = ε → 0 exploitation. `ξ` in EI is the explicit exploration knob, annealed to 0.
+- **TD / Q-value updating.** Each realised output is a reward; revising the incumbent best
+  is a value update. The *effective learning rate* tracks the inferred noise: α ≈ 1 for
+  deterministic functions (one sample is ground truth — f8), low α for f2 (average over
+  repeats rather than chase the latest draw). The override doctrine is a manual guard against
+  an over-large learning rate — refusing to let one noisy GP signal overwrite a stable
+  estimate.
+- **Model-based vs model-free.** The GP-EI surrogate is the *model-based* overlay used to
+  anticipate outcomes (planning); the realised outputs are the *model-free* signal. Because
+  the surrogate is data-starved, model-free experience dominated, with model-based planning
+  trusted only on agreement (f4). This is exactly the model-error vulnerability of
+  model-based methods under sparse, shifting data — and the AlphaGo-Zero contrast: AGZ pairs
+  a learned model with exact-simulator MCTS lookahead; here the "simulator" (GP) is
+  approximate and uncertain, so lookahead was a check, not an oracle.
+
+## 5. Numerical notes
+
+`ConvergenceWarning` (L-BFGS-B `ABNORMAL_TERMINATION_IN_LNSRCH`; hyperparameters near
+bounds) are expected on flat sparse-data likelihoods and are **warnings, not errors** — the
+multi-restart fit returns valid kernels and every function yields a proposal. Suppress for a
+clean log via `warnings.filterwarnings("ignore", category=ConvergenceWarning)`; widening the
+kernel bounds (`ℓ ∈ [1e-3, 1e4]`, `σ_n² ∈ [1e-12, 1e1]`) removes most at no substantive
+cost. Seed pinned at 7; cross-check coordinates are draw-dependent, final strings hard-coded.
+
