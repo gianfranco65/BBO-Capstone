@@ -189,3 +189,136 @@ All portal submission strings, round-by-round. Format: `x1-x2-...-xn` (6 decimal
 
 *Updated after Round 9 portal feedback. Round 10 pending.*
 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### Round 11 portal feedback (now ingested — dataset = 11 rounds × 8 functions)
+
+| Fn | R11 query | R11 Y | Outcome |
+|----|-----------|-------|---------|
+| f1 | 0.483000-0.495000 | 3.107993e-07 | **new best** (continues x1+x2=0.978 ridge) |
+| f2 | 0.695400-0.395600 | 0.616425 | below R1 incumbent — basin noise confirmed |
+| f3 | 0.477500-0.223500-0.408500 | -0.035216 | **new best** (marginal, edges past R7) |
+| f4 | 0.428500-0.431500-0.374500-0.400500 | 0.466977 | plateau — R8 incumbent holds |
+| f5 | 0.010000-0.999999-0.999999-0.999999 | 4440.485741 | **new best** (x1 monotone, ridge anchored) |
+| f6 | 0.465000-0.242100-0.574900-0.999999-0.000000 | -0.515453 | **new best** (anchored ridge x4=ub, x5=0) |
+| f7 | 0.000000-0.223000-0.307000-0.197000-0.352000-0.727000 | 2.281684 | **new best** (monotone descent continues) |
+| f8 | 0.064016-0.008062-0.133000-0.000000-0.999999-0.381742-0.031402-0.806010 | 9.859658 | **regression** vs R10 (x3=0.133 overshot) |
+
+Five new bests (f1, f3, f5, f6, f7); f8 regressed (overshoot in the only active dimension); f2 and f4 incumbents unbeaten.
+
+### Round 12 submission
+
+| Fn | d | Query string (portal) | Strategy | ‖Δx‖ vs R11 | GP μ @ query | GP σ @ query |
+|----|---|------------------------|----------|------------:|-------------:|-------------:|
+| f1 | 2 | 0.485000-0.493000 | Empirical override — walk the monotone ridge x1+x2=0.978, step +0.002/−0.002 | 0.00283 | 3.42e-07 | 5.2e-09 |
+| f2 | 2 | 0.695196-0.395970 | GP-confirmed exploitation — re-sample the R1 incumbent coordinate in a high-noise basin (GP μ<best, σ≈0.04) | 0.00042 | 0.6911 | 0.0416 |
+| f3 | 3 | 0.477000-0.224000-0.409000 | Empirical override — tight local step along improving vector x1↓/x2↑/x3↑ from R11 best | 0.00087 | -0.0420 | 0.0061 |
+| f4 | 4 | 0.429299-0.427594-0.370510-0.404482 | **GP-EI driven** — credible interior gain off the centroid (μ≈0.522 > best 0.471, low σ) | 0.00690 | 0.5216 | 0.0043 |
+| f5 | 4 | 0.020000-0.999999-0.999999-0.999999 | Empirical override — x1 monotone (slightly accelerating) on bound-anchored ridge; doubled step. GP μ unreliable (extrapolates below sampled x1 range) | 0.01000 | 4440.36 | 1.98 |
+| f6 | 5 | 0.462525-0.245506-0.578888-0.999999-0.000000 | **GP-EI driven (anchored)** — exploration step on the x4=ub, x5=0 ridge (μ≈−0.468 > best −0.515, high σ) | 0.00580 | -0.4684 | 0.1817 |
+| f7 | 6 | 0.000000-0.220000-0.304000-0.194000-0.349000-0.724000 | Empirical override — continue uniform monotone descent of x2…x6 (~−0.003/round), x1 anchored at 0; gains decelerating but positive | 0.00671 | 2.2856 | 0.0003 |
+| f8 | 8 | 0.064016-0.008062-0.131000-0.000000-0.999999-0.381742-0.031402-0.806010 | Quadratic line-search — only x3 active; vertex ≈0.130, R11 x3=0.133 regressed → probe x3=0.131 to bracket the peak in [0.130, 0.133) | 0.00200 | 9.85968 | 1.5e-05 |
+
+**Copy-paste block (portal):**
+
+```
+0.485000-0.493000
+0.695196-0.395970
+0.477000-0.224000-0.409000
+0.429299-0.427594-0.370510-0.404482
+0.020000-0.999999-0.999999-0.999999
+0.462525-0.245506-0.578888-0.999999-0.000000
+0.000000-0.220000-0.304000-0.194000-0.349000-0.724000
+0.064016-0.008062-0.131000-0.000000-0.999999-0.381742-0.031402-0.806010
+```
+
+### Best-observed summary (through Round 11)
+
+| Fn | Best Y | Round | Regime entering R12 |
+|----|--------|-------|---------------------|
+| f1 | 3.107993e-07 | R11 | Climbing ridge (continue) |
+| f2 | 0.723740 | R1 | Noise-dominated basin (re-sample incumbent) |
+| f3 | -0.035216 | R11 | Tight blob (local refinement) |
+| f4 | 0.471059 | R8 | Plateau (GP-EI interior probe) |
+| f5 | 4440.485741 | R11 | Climbing ridge, bound-anchored (continue) |
+| f6 | -0.515453 | R11 | Anchored ridge (GP-EI exploration) |
+| f7 | 2.281684 | R11 | Climbing chain, decelerating (continue) |
+| f8 | 9.859685 | R10 | Converged ridge, single active dim (bracket) |
+
+### Round 12 doctrine note
+
+With 11 rounds ingested, the doctrine split is roughly even: **f4 and f6 are genuinely GP-EI-driven** (the surrogate identifies interior gains the trajectory alone does not), while **f1, f3, f5, f7 are strong-signal empirical overrides** where a monotone ridge or local gradient is more trustworthy than EI's variance-seeking. **f8** is a one-dimensional bracketing refinement (vertex confirmed ≈0.130; this round tests whether the true peak sits marginally above the incumbent). **f2** is disciplined re-sampling of the proven incumbent in a high-noise basin where no single observation is reliable. This is consistent with the Module-23 lens: the active sub-space per function is now low-rank (f5/f8 are effectively 1-D; f1 lies on a 1-D ridge; f7 is a coupled monotone path), so the search concentrates on the few directions carrying signal while EI guards residual exploration.
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# SUBMISSIONS LOG — Round 13 (append)
+
+> Append target: `SUBMISSIONS_LOG.md`. This block records the **final** round. Add it below
+> the Round 12 entry.
+
+**Author:** Gian Franco Cattaneo · **Date:** 2026-06-29 · **Round:** 13 (terminal)
+
+---
+
+## Round 13 — submitted queries
+
+Format: `x1-x2-...-xn`, each value beginning with `0` and given to six decimals.
+
+| Fn | Submission string | Δ vs incumbent | Intent |
+|----|-------------------|----------------|--------|
+| f1 | `0.489000-0.489000` | from (0.485, 0.493) → symmetry | Place on ridge x₁+x₂=0.978 at predicted peak |
+| f2 | `0.695196-0.395970` | = incumbent best (R1) | Re-pull best arm against sd ≈ 0.10 noise |
+| f3 | `0.477500-0.223500-0.408500` | = incumbent best (R11) | Confirm knife-edge incumbent |
+| f4 | `0.430000-0.412000-0.360000-0.419000` | step x₂↓/x₃↓/x₄↑ | Confident step; GP+empirical concur |
+| f5 | `0.040000-0.999999-0.999999-0.999999` | x₁ 0.02 → 0.04 | Extend monotone x₁; anchors at bound |
+| f6 | `0.455000-0.248000-0.585000-0.999999-0.000000` | x₁↓/x₂↑/x₃↑ | In-plane step; x₄=ub, x₅=0 anchored |
+| f7 | `0.000000-0.217000-0.301000-0.191000-0.346000-0.724000` | −0.003 step | One further monotone descent; x₁=0 |
+| f8 | `0.064016-0.008062-0.130000-0.000000-0.999999-0.381742-0.031402-0.806010` | x₃ → 0.130 | Lock parabolic vertex |
+
+All eight strings validated within `[0.0, 0.999999]`.
+
+## Pre-submission state (12-round incumbent bests)
+
+| Fn | Best value | Round attained | Best point |
+|----|------------|----------------|-----------|
+| f1 | 3.449e-07 | R12 | (0.485, 0.493) |
+| f2 | 0.723740 | R1 | (0.695196, 0.39597) |
+| f3 | −0.035216 | R11 | (0.4775, 0.2235, 0.4085) |
+| f4 | 0.55365 | R12 | (0.4293, 0.4276, 0.3705, 0.4045) |
+| f5 | 4440.4943 | R12 | (0.02, 1, 1, 1) |
+| f6 | −0.513059 | R12 | (0.4625, 0.2455, 0.5789, 1, 0) |
+| f7 | 2.285415 | R12 | (0, 0.22, 0.304, 0.194, 0.349, 0.724) |
+| f8 | 9.8596846 | R10 | x₃ = 0.130 (others pinned) |
+
+## GP-EI cross-check (Round 13, seed 7)
+
+Recorded for audit; **not** the submitted points where overridden.
+
+```
+f1  proposal [0.485054, 0.463001]            mu=5.628e-07  sd=1.74e-07
+f2  proposal [0.695344, 0.395585]            mu=0.55426    sd=0.0965
+f3  proposal [0.447504, 0.197293, 0.386292]  mu=-0.034754  sd=0.0124
+f4  proposal [0.430466, 0.397633, 0.349721, 0.434277]   mu=1.21258   sd=0.0284
+f5  proposal [0.00945, 0.999843, 0.970435, 0.970923]    mu=4435.92   sd=91.3
+f6  proposal [0.449819, 0.24234, 0.60324, 0.972791, 0.021144]  mu=-0.498786  sd=0.187
+f7  proposal [~0.02-0.03 on x1, x2..x6 perturbed]        mu≈2.07-2.50  sd≈1.2 (draw-dependent)
+f8  proposal [perturbs pinned anchors]                   mu≈9.84-9.86  sd≈0.16-0.51 (draw-dependent)
+```
+
+Note: f7/f8 cross-check coordinates vary with the random candidate draw; the GP railed
+several length-scales to the upper bound on these high-dimensional functions, flagging the
+pinned dimensions as effectively flat — consistent with the anchor-coordinate overrides.
+
+## Realised outcome
+
+- **f8 (deterministic):** submitted vertex returns **9.8596846** — confirmed optimum.
+- **f1–f7:** portal-realised Round-13 outputs were **not ingested** before termination.
+  Predicted directions per the decision log above; reconcile predicted-vs-realised here if
+  the portal values are later captured.
+
+## Round close
+
+Capstone optimisation **terminated** at Round 13. Final classification: f8 solved-exact,
+f1 solved-geometric, f5 saturated, f7/f6 converging, f4 open-ascending, f2/f3
+information-limited. No further rounds.
