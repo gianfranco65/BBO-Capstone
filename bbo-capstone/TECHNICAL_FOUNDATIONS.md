@@ -147,9 +147,9 @@ bbo-capstone/
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# TECHNICAL FOUNDATIONS — Round 13 Update
+# TECHNICAL FOUNDATIONS — Round 13 Update (Final)
 
-> Merge target: `TECHNICAL_FOUNDATIONS.md`. Appended under `## Round 13 (final)`.
+> Merge target: `TECHNICAL_FOUNDATIONS.md`.
 
 **Author:** Gian Franco Cattaneo · Imperial Business School (Executive Master ML/AI)
 **Date:** 2026-06-29
